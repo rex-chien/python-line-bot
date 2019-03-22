@@ -186,7 +186,7 @@ def scheduled_report():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=scheduled_report, trigger="interval", seconds=5)
+scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
 scheduler.start()
 
 # Shut down the scheduler when exiting the app
