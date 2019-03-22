@@ -118,7 +118,7 @@ def get_action(event, commands):
     rates = twder.now(currency)
     currency_names_dict = twder.currency_name_dict()
     quote_time, cash_buy, cash_sell, rate_buy, rate_sell = rates
-    str_format = '[{currency_name}]\n' + \
+    str_format = '【{currency_name}】\n' + \
                  '現金買入: {cash_buy}\n' + \
                  '現金賣出: {cash_sell}\n' + \
                  '即期買入: {rate_buy}\n' + \
