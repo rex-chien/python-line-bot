@@ -10,6 +10,8 @@ from linebot.exceptions import (
 from linebot.models import (
     MessageEvent, TextMessage, )
 
+import requests
+
 from line_message_handlers import ExchangeRateLineMessageHandler
 
 load_dotenv()
@@ -63,8 +65,13 @@ def scheduled_report():
     exchange_rate_message_handler.start_schedule_task()
 
 
+def wakeup():
+    requests.get(os.getenv('WAKEUP_URL'))
+
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
+scheduler.add_job(func=wakeup, trigger="interval", minutes=10)
 scheduler.start()
 
 # Shut down the scheduler when exiting the app
