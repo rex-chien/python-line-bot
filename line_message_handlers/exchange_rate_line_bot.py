@@ -45,26 +45,28 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
         message = event.message.text
         commands = message.split(' ')
         
-        reply_message = self.command_actions(commands[0])(sender_id, commands)
+        reply_message = self.__command_actions(commands[0])(sender_id=sender_id, commands=commands)
 
         if event.reply_token != '00000000000000000000000000000000':
             self.line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=reply_message))
 
-    def command_actions(self, command):
+    def __command_actions(self, command):
         actions = {
-            'set': self.set_action,
-            'del': self.del_action,
-            'get': self.get_action,
-            'help': self.help_action,
+            'set': self.__set_action,
+            'del': self.__del_action,
+            'get': self.__get_action,
+            'help': self.__help_action,
         }
         command = command.lower()
         if command not in actions:
             command = 'help'
         return actions[command]
 
-    def set_action(self, sender_id, commands):
+    def __set_action(self, **kwargs):
+        sender_id = kwargs['sender_id']
+        commands = kwargs['commands']
         currency = commands[1].upper()
         rate = float(commands[2])
         rate_type = 'buy' if commands[3].upper() == 'B' else 'sell'
@@ -86,7 +88,9 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
 
         return '匯率到價提醒設定成功！'
 
-    def del_action(self, sender_id, commands):
+    def __del_action(self, **kwargs):
+        sender_id = kwargs['sender_id']
+        commands = kwargs['commands']
         currency = commands[1].upper()
         rate_type = 'buy' if commands[2].upper() == 'B' else 'sell'
 
@@ -107,7 +111,8 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
 
         return '匯率到價提醒刪除成功！'
 
-    def get_action(self, sender_id, commands):
+    def __get_action(self, **kwargs):
+        commands = kwargs['commands']
         currency = commands[1].upper()
         rates = twder.now(currency)
         currency_names_dict = twder.currency_name_dict()
@@ -126,7 +131,7 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
             'rate_sell': rate_sell,
         })
 
-    def help_action(self, sender_id, commands):
+    def __help_action(self, **kwargs):
         return '【指令說明】\n' + \
                '設定匯率到價提醒：SET [幣別] [匯率] [B/S]\n' + \
                '刪除匯率到價提醒：DEL [幣別] [B/S]\n' + \

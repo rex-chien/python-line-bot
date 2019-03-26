@@ -32,7 +32,6 @@ def callback():
     # get request body as text
     body = request.get_data(as_text=True)
     app.logger.info("Request body: " + body)
-    # line_bot_api.push_message('U8d73bbf97b603c77edfeffce883f1d68', TextSendMessage(text='Hello World!'))
 
     # handle webhook body
     try:
