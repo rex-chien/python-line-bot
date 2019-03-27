@@ -1,9 +1,42 @@
 import twder
+import redis
+import json
+import os
 from linebot.models import (
     TextSendMessage,
 )
 
 from .abstract_line_bot import AbstractLineMessageHandler
+
+redis_cache = redis.Redis.from_url(os.getenv('REDIS_URL'))
+
+
+def cache_now_all():
+    twder_now_all_key = 'twder.now_all'
+    now_all_str = redis_cache.get(twder_now_all_key)
+    if now_all_str is None:
+        now_all = twder.now_all()
+        now_all_str = json.dumps(now_all)
+        # 10 minutes
+        redis_cache.setex(twder_now_all_key, 60 * 10, now_all_str)
+
+    return json.loads(now_all_str)
+
+
+def cache_now(currency):
+    return cache_now_all()[currency]
+
+
+def cache_currency_name_dic():
+    twder_currency_name_dict_key = 'twder.currency_name_dict'
+    currency_name_dict_str = redis_cache.get(twder_currency_name_dict_key)
+    if currency_name_dict_str is None:
+        currency_name_dict = twder.currency_name_dict()
+        currency_name_dict_str = json.dumps(currency_name_dict)
+        # 1 day
+        redis_cache.setex(twder_currency_name_dict_key, 60 * 60 * 24, currency_name_dict_str)
+
+    return json.loads(currency_name_dict_str)
 
 
 class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
@@ -14,8 +47,8 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
         self.collection = super().get_collection('exchange_reports')
 
     def start_schedule_task(self):
-        now_all = twder.now_all()
-        currency_names_dict = twder.currency_name_dict()
+        now_all = cache_now_all()
+        currency_names_dict = cache_currency_name_dic()
 
         results = self.collection.find({})
 
@@ -114,8 +147,8 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
     def __get_action(self, **kwargs):
         commands = kwargs['commands']
         currency = commands[1].upper()
-        rates = twder.now(currency)
-        currency_names_dict = twder.currency_name_dict()
+        rates = cache_now(currency)
+        currency_names_dict = cache_currency_name_dic()
         quote_time, cash_buy, cash_sell, rate_buy, rate_sell = rates
         str_format = '【{currency_name}】\n' + \
                      '現金買入: {cash_buy}\n' + \
