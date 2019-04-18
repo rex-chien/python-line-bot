@@ -8,7 +8,7 @@ from linebot.exceptions import (
     InvalidSignatureError
 )
 from linebot.models import (
-    MessageEvent, TextMessage, )
+    MessageEvent, TextMessage, TextSendMessage )
 
 import requests
 
@@ -55,6 +55,24 @@ def handle_message(event):
         exchange_rate_message_handler.handle_event(event)
     elif command == 'mops':
         mops_message_handler.handle_event(event)
+    else:
+        line_bot_api.reply_message(event.reply_token,
+                                   TextSendMessage(text='感謝您將本帳號設為好友！(happy)\n\n'
+                                                        '==台灣銀行牌告匯率==\n'
+                                                        '【指令說明】\n'
+                                                        '設定匯率到價提醒：TWDER SET [幣別] [匯率] [B/S]\n'
+                                                        '刪除匯率到價提醒：TWDER DEL [幣別] [B/S]\n'
+                                                        '取得即期匯率：TWDER GET [幣別]\n'
+                                                        '顯示指令說明：TWDER HELP\n'
+                                                        '* [B/S] B=銀行買入/S=銀行賣出\n'
+                                                        '【資料來源】\n'
+                                                        '臺灣銀行牌告匯率：http://rate.bot.com.tw/xrt?Lang=zh-TW\n\n'
+                                                        '==重大訊息==\n'
+                                                        '【指令說明】\n'
+                                                        '查詢近七天重大訊息：MOPS [公司代號]\n'
+                                                        '顯示指令說明：MOPS HELP\n'
+                                                        '【資料來源】\n'
+                                                        '公開資訊觀測站：http://mops.twse.com.tw/mops/web/index'))
 
 
 @app.route('/')
