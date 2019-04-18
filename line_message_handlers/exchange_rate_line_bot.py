@@ -1,7 +1,6 @@
-import twder
-import redis
 import json
-import os
+
+import twder
 from linebot.models import (
     TextSendMessage,
 )
@@ -136,10 +135,10 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
 
     def __help_action(self, **kwargs):
         return '【指令說明】\n' + \
-               '設定匯率到價提醒：SET [幣別] [匯率] [B/S]\n' + \
-               '刪除匯率到價提醒：DEL [幣別] [B/S]\n' + \
-               '取得即期匯率：GET [幣別]\n' + \
-               '顯示指令說明：HELP\n' + \
+               '設定匯率到價提醒：TWDER SET [幣別] [匯率] [B/S]\n' + \
+               '刪除匯率到價提醒：TWDER DEL [幣別] [B/S]\n' + \
+               '取得即期匯率：TWDER GET [幣別]\n' + \
+               '顯示指令說明：TWDER HELP\n' + \
                '* [B/S] B=銀行買入/S=銀行賣出\n' + \
                '【幣別對照】\n' + \
                'USD: 美金、EUR: 歐元、AUD: 澳幣、CAD: 加拿大幣、JPY: 日圓、CNY: 人民幣、GBP: 英鎊、HKD: 港幣\n' + \

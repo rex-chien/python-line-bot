@@ -17,6 +17,7 @@ pymongo = "~=3.7.2"
 python-dotenv = "~=0.10.1"
 requests = "~=2.21.0"
 redis = "~=3.2.1"
+beautifulsoup4 = "~=4.7.1"
 
 [requires]
 python_version = "3.7"
