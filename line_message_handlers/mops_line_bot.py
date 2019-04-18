@@ -56,6 +56,9 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         information_date_range = date.today() - timedelta(days=6)
         has_information_recently = False
 
+        original_form = soup.find('form', id='fm1')
+        typek = original_form.find('input', id='TYPEK')['value']
+
         for information_row in material_information_table.find_all('tr')[1:]:
             title_column = information_row.find_all('td')[1]
             title_button = title_column.find('button')
@@ -68,7 +71,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
                 'firstin': 'true',
                 'off': 1,
                 'first': 'true',
-                'TYPEK': 'sii',
+                'TYPEK': typek,
                 'co_id': stock_code
             }
 
