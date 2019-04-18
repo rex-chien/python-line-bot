@@ -54,6 +54,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         soup = BeautifulSoup(page_source, 'html.parser')
         material_information_table = soup.find_all('table')[1]
         information_date_range = date.today() - timedelta(days=6)
+        has_information_recently = False
 
         for information_row in material_information_table.find_all('tr')[1:]:
             title_column = information_row.find_all('td')[1]
@@ -90,6 +91,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
             spoken_date_in_bc = spoken_date.replace(spoken_date[0:3], str(int(spoken_date[0:3]) + 1911))
             if datetime.strptime(spoken_date_in_bc, '%Y/%m/%d').date() < information_date_range:
                 break
+            has_information_recently = True
 
             title = rows[2].find_all('td')[1].text.strip()
             fact_date = rows[3].find_all('td')[3].text.strip()
@@ -102,3 +104,8 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
                           f'\n【事實發生日】{fact_date}'
                           f'\n【主旨】\n{title}'
                           f'\n【說明】\n{content}')[:2000]))
+
+        if not has_information_recently:
+            self.line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=f'公司代碼: {stock_code}，近七天無重大訊息'))
