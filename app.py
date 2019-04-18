@@ -57,8 +57,7 @@ def handle_message(event):
         mops_message_handler.handle_event(event)
     else:
         line_bot_api.reply_message(event.reply_token,
-                                   TextSendMessage(text='感謝您將本帳號設為好友！(happy)\n\n'
-                                                        '==台灣銀行牌告匯率==\n'
+                                   TextSendMessage(text='==台灣銀行牌告匯率==\n'
                                                         '【指令說明】\n'
                                                         '設定匯率到價提醒：TWDER SET [幣別] [匯率] [B/S]\n'
                                                         '刪除匯率到價提醒：TWDER DEL [幣別] [B/S]\n'
