@@ -48,9 +48,9 @@ def handle_message(event):
     event.message.text = ' '.join(commands[1:])
 
     command = commands[0].lower()
-    if command == 'twder':
+    if command == 'er':
         exchange_rate_message_handler.handle_event(event)
-    elif command == 'mops':
+    elif command == 'mi':
         mops_message_handler.handle_event(event)
     else:
         exchange_rate_message_handler \
