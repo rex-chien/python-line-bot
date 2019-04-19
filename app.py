@@ -8,19 +8,16 @@ from linebot.exceptions import (
     InvalidSignatureError
 )
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage )
+    MessageEvent, TextMessage, TextSendMessage)
 
 import requests
 
 from line_message_handlers import (
-    ExchangeRateLineMessageHandler, MopsLineMessageHandler)
+    ExchangeRateLineMessageHandler, MopsLineMessageHandler, AbstractLineMessageHandler)
 
 load_dotenv()
 
 app = Flask(__name__)
-
-line_bot_api = LineBotApi(os.getenv("CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
 
 exchange_rate_message_handler = ExchangeRateLineMessageHandler()
 mops_message_handler = MopsLineMessageHandler()
@@ -37,14 +34,14 @@ def callback():
 
     # handle webhook body
     try:
-        handler.handle(body, signature)
+        AbstractLineMessageHandler.handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
 
     return 'OK'
 
 
-@handler.add(MessageEvent, message=TextMessage)
+@AbstractLineMessageHandler.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     message = event.message.text
     commands = message.split(' ')
@@ -56,22 +53,11 @@ def handle_message(event):
     elif command == 'mops':
         mops_message_handler.handle_event(event)
     else:
-        line_bot_api.reply_message(event.reply_token,
-                                   TextSendMessage(text='==台灣銀行牌告匯率==\n'
-                                                        '【指令說明】\n'
-                                                        '設定匯率到價提醒：TWDER SET [幣別] [匯率] [B/S]\n'
-                                                        '刪除匯率到價提醒：TWDER DEL [幣別] [B/S]\n'
-                                                        '取得即期匯率：TWDER GET [幣別]\n'
-                                                        '顯示指令說明：TWDER HELP\n'
-                                                        '* [B/S] B=銀行買入/S=銀行賣出\n'
-                                                        '【資料來源】\n'
-                                                        '臺灣銀行牌告匯率：http://rate.bot.com.tw/xrt?Lang=zh-TW\n\n'
-                                                        '==重大訊息==\n'
-                                                        '【指令說明】\n'
-                                                        '查詢近七天重大訊息：MOPS [公司代號]\n'
-                                                        '顯示指令說明：MOPS HELP\n'
-                                                        '【資料來源】\n'
-                                                        '公開資訊觀測站：http://mops.twse.com.tw/mops/web/index'))
+        AbstractLineMessageHandler \
+            .reply_message(event.reply_token,
+                           ExchangeRateLineMessageHandler.help_message()
+                           + '\n\n'
+                           + MopsLineMessageHandler.help_message())
 
 
 @app.route('/')

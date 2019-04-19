@@ -42,31 +42,43 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
                 )
                 self.collection.replace_one({'source': r['source']}, r, upsert=True)
 
-    def handle_event(self, event):
-        sender_id = event.source.sender_id
-        message = event.message.text
-        commands = message.split(' ')
-        
-        reply_message = self.__command_actions(commands[0])(sender_id=sender_id, commands=commands)
+    # def handle_event(self, event):
+    #     sender_id = event.source.sender_id
+    #     message = event.message.text
+    #     commands = message.split(' ')
+    #
+    #     reply_message = self.__command_actions(commands[0])(sender_id=sender_id, commands=commands)
+    #
+    #     if event.reply_token != '00000000000000000000000000000000':
+    #         self.line_bot_api.reply_message(
+    #             event.reply_token,
+    #             TextSendMessage(text=reply_message))
 
-        if event.reply_token != '00000000000000000000000000000000':
-            self.line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=reply_message))
+    @staticmethod
+    def help_message():
+        return '==台灣銀行牌告匯率==\n' \
+               '【指令說明】\n' + \
+               '設定匯率到價提醒：ER SET [幣別] [匯率] [B/S]\n' + \
+               '刪除匯率到價提醒：ER DEL [幣別] [B/S]\n' + \
+               '取得即期匯率：ER GET [幣別]\n' + \
+               '顯示指令說明：ER HELP\n' + \
+               '* [B/S] B=銀行買入/S=銀行賣出\n' + \
+               '【資料來源】\n' + \
+               '臺灣銀行牌告匯率：http://rate.bot.com.tw/xrt?Lang=zh-TW'
 
-    def __command_actions(self, command):
+    def _map_action(self, commands):
         actions = {
-            'set': self.__set_action,
-            'del': self.__del_action,
-            'get': self.__get_action,
-            'help': self.__help_action,
+            'set': self._set_action,
+            'del': self._del_action,
+            'get': self._get_action,
+            'help': self._help_action,
         }
-        command = command.lower()
+        command = commands[0].lower()
         if command not in actions:
             command = 'help'
         return actions[command]
 
-    def __set_action(self, **kwargs):
+    def _set_action(self, **kwargs):
         sender_id = kwargs['sender_id']
         commands = kwargs['commands']
         currency = commands[1].upper()
@@ -90,7 +102,7 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
 
         return '匯率到價提醒設定成功！'
 
-    def __del_action(self, **kwargs):
+    def _del_action(self, **kwargs):
         sender_id = kwargs['sender_id']
         commands = kwargs['commands']
         currency = commands[1].upper()
@@ -113,7 +125,7 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
 
         return '匯率到價提醒刪除成功！'
 
-    def __get_action(self, **kwargs):
+    def _get_action(self, **kwargs):
         commands = kwargs['commands']
         currency = commands[1].upper()
         rates = self.cache_now(currency)
@@ -133,17 +145,8 @@ class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
             'rate_sell': rate_sell,
         })
 
-    def __help_action(self, **kwargs):
-        return '【指令說明】\n' + \
-               '設定匯率到價提醒：TWDER SET [幣別] [匯率] [B/S]\n' + \
-               '刪除匯率到價提醒：TWDER DEL [幣別] [B/S]\n' + \
-               '取得即期匯率：TWDER GET [幣別]\n' + \
-               '顯示指令說明：TWDER HELP\n' + \
-               '* [B/S] B=銀行買入/S=銀行賣出\n' + \
-               '【幣別對照】\n' + \
-               'USD: 美金、EUR: 歐元、AUD: 澳幣、CAD: 加拿大幣、JPY: 日圓、CNY: 人民幣、GBP: 英鎊、HKD: 港幣\n' + \
-               '【資料來源】\n' + \
-               '臺灣銀行牌告匯率：http://rate.bot.com.tw/xrt?Lang=zh-TW'
+    def _help_action(self, **kwargs):
+        return self.help_message()
 
     def cache_now_all(self):
         twder_now_all_key = 'twder.now_all'
