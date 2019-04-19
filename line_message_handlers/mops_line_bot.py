@@ -190,7 +190,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
     def help_message():
         return '==重大訊息==\n' \
                '【指令說明】\n' + \
-               '查詢金天重大訊息：MI [公司代號] RECENT\n' + \
+               '查詢今天重大訊息：MI [公司代號] RECENT\n' + \
                '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
                '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
                '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
