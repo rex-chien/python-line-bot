@@ -30,7 +30,11 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
             'range': self._range_action,
             'help': self._help_action,
         }
-        command = commands[1].lower()
+        if len(commands) > 1:
+            command = commands[1].lower()
+        else:
+            command = commands[0].lower()
+
         if command not in actions:
             command = 'help'
         return actions[command]
@@ -69,6 +73,9 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
 
         if begin_date > end_date:
             raise CommandException('起始日期不可以晚於結束日期' if len(commands) > 3 else '起始日期不可以晚於今天')
+
+        if (end_date - begin_date).days > 90:
+            raise CommandException('日期範圍須在 90 天內')
 
         messages = self.retrieve_material_information_within_date_range(company_code, begin_date, end_date)
 
