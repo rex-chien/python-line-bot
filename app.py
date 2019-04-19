@@ -53,7 +53,7 @@ def handle_message(event):
     elif command == 'mops':
         mops_message_handler.handle_event(event)
     else:
-        AbstractLineMessageHandler \
+        exchange_rate_message_handler \
             .reply_message(event.reply_token,
                            ExchangeRateLineMessageHandler.help_message()
                            + '\n\n'
