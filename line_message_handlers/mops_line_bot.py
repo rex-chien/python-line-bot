@@ -5,8 +5,10 @@ from datetime import (
 import requests
 import json
 from bs4 import BeautifulSoup
+from mongoengine import DoesNotExist
 
 from .abstract_line_bot import AbstractLineMessageHandler
+from domain import MaterialInformation
 from CommandException import CommandException
 
 mops_api_prefix = 'http://mops.twse.com.tw/mops/web'
@@ -88,27 +90,17 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         return self.help_message()
 
     def retrieve_material_information_within_date_range(self, company_code, begin_date, end_date=date.today()):
-        parameters = []
+        years = []
 
-        while end_date >= begin_date:
-            parameter = Parameter()
-            parameter.year = end_date.year - 1911
-            parameter.month = end_date.month
-            parameter.end_day = end_date.day
-            parameter.begin_day = 1
-
-            parameters.append(parameter)
-
-            del parameter
-
-            end_date = end_date - timedelta(days=end_date.day)
-        else:
-            parameters[-1].begin_day = begin_date.day
+        tmp_end_date = date(end_date.year, end_date.month, end_date.day)
+        while tmp_end_date >= begin_date:
+            years.append(tmp_end_date.year - 1911)
+            tmp_end_date = end_date - timedelta(days=tmp_end_date.timetuple().tm_yday)
 
         messages = []
         detail_payloads = []
 
-        for param in parameters:
+        for year in years:
             payload = {
                 'encodeURIComponent': 1,
                 'step': 1,
@@ -118,10 +110,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
                 'inpuType': 'co_id',
                 'TYPEK': 'all',
                 'co_id': company_code,
-                'year': param.year,
-                'month': param.month,
-                'b_date': param.begin_day,
-                'e_date': param.end_day
+                'year': year
             }
 
             payload_hash_key = to_sha1(json.dumps(payload))
@@ -154,7 +143,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
                     'first': 1,
                     'step': 2,
                     'co_id': company_code,
-                    'year': param.year
+                    'year': year
                 }
 
                 for assignment in onclick_assignments:
@@ -169,27 +158,51 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
             detail_payloads = detail_payloads + local_detail_payloads
 
         for detail_payload in detail_payloads:
-            detail_payload_hash_key = to_sha1(json.dumps(detail_payload))
-            material_info_str = self.redis_cache.get(detail_payload_hash_key)
-            if material_info_str is not None:
-                material_info = MaterialInformation(**json.loads(material_info_str))
-            else:
-                soup = soup_from_mops(detail_payload)
-                information_body_table = soup.find_all('table')[2]
-                rows = information_body_table.find_all('tr')
+            spoken_date = datetime.strptime(detail_payload['spoke_date'], '%Y%m%d').date()
 
-                material_info = MaterialInformation()
-                material_info.spoken_date = rows[0].find_all('td')[3].text.strip()
-                material_info.fact_date = rows[3].find_all('td')[3].text.strip()
-                material_info.title = rows[2].find_all('td')[1].text.strip()
-                material_info.content = rows[4].find_all('td')[1].text.strip()
+            if spoken_date > end_date:
+                break
 
-            self.redis_cache.setex(detail_payload_hash_key, 60 * 60 * 24, json.dumps(material_info.__dict__))
+            if spoken_date >= begin_date:
+                detail_payload_hash_key = to_sha1(json.dumps(detail_payload))
 
-            messages.append(f'【發言日期】{material_info.spoken_date}'
-                            f'\n【事實發生日】{material_info.fact_date}'
-                            f'\n【主旨】\n{material_info.title}'
-                            f'\n【說明】\n{material_info.content}'[:2000])
+                try:
+                    material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)
+
+                    spoken_date_str = material_info.spoken_date.strftime('%Y/%m/%d')
+                    spoken_roc_date_str = spoken_date_str.replace(spoken_date_str[:4],
+                                                                  str(int(spoken_date_str[:4]) - 1911))
+
+                    fact_date_str = material_info.fact_date.strftime('%Y/%m/%d')
+                    fact_roc_date_str = fact_date_str.replace(fact_date_str[:4],
+                                                              str(int(fact_date_str[:4]) - 1911))
+                except DoesNotExist:
+                    soup = soup_from_mops(detail_payload)
+                    information_body_table = soup.find_all('table')[2]
+                    rows = information_body_table.find_all('tr')
+
+                    material_info = MaterialInformation()
+                    material_info.id = detail_payload_hash_key
+
+                    spoken_roc_date_str = rows[0].find_all('td')[3].text.strip()
+                    spoken_date_str = spoken_roc_date_str.replace(spoken_roc_date_str[:3],
+                                                                  str(int(spoken_roc_date_str[:3]) + 1911))
+                    material_info.spoken_date = datetime.strptime(spoken_date_str, '%Y/%m/%d')
+
+                    fact_roc_date_str = rows[3].find_all('td')[3].text.strip()
+                    fact_date_str = fact_roc_date_str.replace(fact_roc_date_str[:3],
+                                                              str(int(fact_roc_date_str[:3]) + 1911))
+                    material_info.fact_date = datetime.strptime(fact_date_str, '%Y/%m/%d')
+
+                    material_info.title = rows[2].find_all('td')[1].text.strip()
+                    material_info.content = rows[4].find_all('td')[1].text.strip()
+
+                    material_info.save()
+
+                messages.append(f'【發言日期】{spoken_roc_date_str}'
+                                f'\n【事實發生日】{fact_roc_date_str}'
+                                f'\n【主旨】\n{material_info.title}'
+                                f'\n【說明】\n{material_info.content}'[:2000])
 
         return messages
 
@@ -217,20 +230,3 @@ def to_sha1(text):
     import hashlib
     encoder = hashlib.sha1(text.encode(encoding='utf-8'))
     return encoder.hexdigest()
-
-
-class MaterialInformation:
-    spoken_date = None
-    fact_date = None
-    title = None
-    content = None
-
-    def __init__(self, **kwargs):
-        self.__dict__.update(**kwargs)
-
-
-class Parameter:
-    year = None
-    month = None
-    begin_day = None
-    end_day = None
