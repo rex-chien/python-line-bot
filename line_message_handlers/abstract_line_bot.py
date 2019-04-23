@@ -5,28 +5,36 @@ from linebot import (
 from linebot.models import (
     TextSendMessage,
 )
-from pymongo import MongoClient
-import redis
 import abc
 
 from CommandException import CommandException
+
+__all__ = (
+    'line_bot_api', 'handler',
+    'push_message', 'reply_message',
+    'AbstractLineMessageHandler')
+
+line_bot_api = LineBotApi(os.getenv("CHANNEL_ACCESS_TOKEN"))
+handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
+
+
+def push_message(to, message_text):
+    line_bot_api.push_message(
+        to,
+        TextSendMessage(text=message_text))
+
+
+def reply_message(reply_token, message_text):
+    line_bot_api.reply_message(
+        reply_token,
+        TextSendMessage(text=message_text))
 
 
 class AbstractLineMessageHandler(abc.ABC):
     HELP_MESSAGE = str
 
-    line_bot_api = LineBotApi(os.getenv("CHANNEL_ACCESS_TOKEN"))
-    handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
-    mongo_dbname = os.getenv('MONGODB_DATABASE')
-    client = MongoClient(os.getenv('MONGODB_URI') + '/' + mongo_dbname)
-    db = client[mongo_dbname]
-    redis_cache = redis.Redis.from_url(os.getenv('REDIS_URL'))
-
     def __init__(self):
         pass
-
-    def get_collection(self, collection_name):
-        return self.db[collection_name]
 
     def handle_event(self, event):
         sender_id = event.source.sender_id
@@ -39,14 +47,14 @@ class AbstractLineMessageHandler(abc.ABC):
                 messages = self._map_action(commands)(sender_id=sender_id, commands=commands)
 
                 if isinstance(messages, str):
-                    self.reply_message(reply_token, messages)
+                    reply_message(reply_token, messages)
                 elif isinstance(messages, list):
                     for message in messages:
-                        self.push_message(sender_id, message)
+                        push_message(sender_id, message)
             except CommandException as e:
-                self.reply_message(reply_token, str(e))
+                reply_message(reply_token, str(e))
             except Exception as e:
-                self.reply_message(reply_token, '系統異常')
+                reply_message(reply_token, '系統異常')
                 # self.reply_message(reply_token, str(e))
 
     @abc.abstractmethod
@@ -57,13 +65,3 @@ class AbstractLineMessageHandler(abc.ABC):
     @abc.abstractmethod
     def help_message():
         return NotImplemented
-
-    def push_message(self, to, message_text):
-        self.line_bot_api.push_message(
-            to,
-            TextSendMessage(text=message_text))
-
-    def reply_message(self, reply_token, message_text):
-        self.line_bot_api.reply_message(
-            reply_token,
-            TextSendMessage(text=message_text))

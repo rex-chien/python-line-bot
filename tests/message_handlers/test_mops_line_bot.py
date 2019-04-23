@@ -6,7 +6,10 @@ import os
 
 from linebot.models import MessageEvent, TextMessage, SourceUser
 
+from line_message_handlers import *
 
+
+@patch('retrieve_material_information_within_date_range', MagicMock())
 class TestMopsLineBot(unittest.TestCase):
     handler = None
     message_event = None
@@ -19,13 +22,10 @@ class TestMopsLineBot(unittest.TestCase):
         'REDIS_URL': 'redis://localhost'
     })
     def setUp(self):
-        from line_message_handlers import MopsLineMessageHandler
-
         self.handler = MopsLineMessageHandler()
-        self.handler.push_message = MagicMock(name='push_message')
-        self.handler.reply_message = MagicMock(name='reply_message')
-        self.handler.retrieve_material_information_within_date_range = MagicMock(
-            name='retrieve_material_information_within_date_range')
+        self.handler.push_message = MagicMock()
+        self.handler.reply_message = MagicMock()
+        # self.handler.retrieve_material_information_within_date_range = MagicMock()
         self.message_event = MessageEvent()
         self.message_event.reply_token = 'replytoken'
         self.message_event.source = SourceUser(user_id='123')
@@ -33,12 +33,12 @@ class TestMopsLineBot(unittest.TestCase):
     def testRecentAction(self):
         self.message_event.message = TextMessage(text='2330 RECENT')
         self.handler.handle_event(self.message_event)
-        self.handler.retrieve_material_information_within_date_range.assert_called_once_with('2330', date.today())
+        retrieve_material_information_within_date_range.assert_called_once_with('2330', date.today())
 
     def testHelpAction(self):
         self.message_event.message = TextMessage(text='help')
         self.handler.handle_event(self.message_event)
-        self.handler.reply_message.assert_called_once_with('replytoken', '==重大訊息==\n' \
+        reply_message.assert_called_once_with('replytoken', '==重大訊息==\n' \
                                                                          '【指令說明】\n' + \
                                                            '查詢今天重大訊息：MI [公司代號] RECENT\n' + \
                                                            '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \

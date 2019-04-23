@@ -7,9 +7,10 @@ import json
 from bs4 import BeautifulSoup
 from mongoengine import DoesNotExist
 
-from .abstract_line_bot import AbstractLineMessageHandler
+from line_message_handlers.abstract_line_bot import AbstractLineMessageHandler, push_message
 from domain import MaterialInformation
 from CommandException import CommandException
+from persistence import redis_cache
 
 mops_api_prefix = 'http://mops.twse.com.tw/mops/web'
 headers = {
@@ -20,6 +21,8 @@ headers = {
 }
 
 detail_payload_re = r"^document.t05st01_fm.(.+).value='(.+)'$"
+
+__all__ = ('MopsLineMessageHandler', 'retrieve_material_information_within_date_range')
 
 
 class MopsLineMessageHandler(AbstractLineMessageHandler):
@@ -55,7 +58,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         begin_date = date.today()
         begin_date = begin_date + timedelta(days=-prev_n_days + 1)
 
-        messages = self.retrieve_material_information_within_date_range(company_code, begin_date)
+        messages = retrieve_material_information_within_date_range(company_code, begin_date)
 
         if not messages:
             return f'[{company_code}] 近 [{prev_n_days} 天] 無重大訊息'
@@ -79,7 +82,7 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         if (end_date - begin_date).days > 90:
             raise CommandException('日期範圍須在 90 天內')
 
-        messages = self.retrieve_material_information_within_date_range(company_code, begin_date, end_date)
+        messages = retrieve_material_information_within_date_range(company_code, begin_date, end_date)
 
         if not messages:
             return f'[{company_code}] 於 [{begin_date.strftime("%Y-%m-%d")}~{end_date.strftime("%Y-%m-%d")}] 天無重大訊息'
@@ -88,123 +91,6 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
 
     def _help_action(self, **kwargs):
         return self.help_message()
-
-    def retrieve_material_information_within_date_range(self, company_code, begin_date, end_date=date.today()):
-        years = []
-
-        tmp_end_date = date(end_date.year, end_date.month, end_date.day)
-        while tmp_end_date >= begin_date:
-            years.append(tmp_end_date.year - 1911)
-            tmp_end_date = end_date - timedelta(days=tmp_end_date.timetuple().tm_yday)
-
-        messages = []
-        detail_payloads = []
-
-        for year in years:
-            payload = {
-                'encodeURIComponent': 1,
-                'step': 1,
-                'firstin': 1,
-                'off': 1,
-                'queryName': 'co_id',
-                'inpuType': 'co_id',
-                'TYPEK': 'all',
-                'co_id': company_code,
-                'year': year
-            }
-
-            payload_hash_key = to_sha1(json.dumps(payload))
-            detail_payloads_str = self.redis_cache.get(payload_hash_key)
-            local_detail_payloads = []
-            if detail_payloads_str is not None:
-                local_detail_payloads = json.loads(detail_payloads_str)
-                detail_payloads = detail_payloads + local_detail_payloads
-                continue
-
-            soup = soup_from_mops(payload)
-            all_tables = soup.find_all('table')
-            if not all_tables or len(all_tables) < 2:
-                continue
-
-            material_information_table = all_tables[1]
-
-            for information_row in material_information_table.find_all('tr')[1:]:
-                button_column = information_row.find_all('td')[5]
-                button = button_column.find('input')
-
-                onclick = button['onclick']
-                onclick_assignments = list(filter(None, onclick.split(';')))
-                onclick_assignments = onclick_assignments
-
-                detail_payload = {
-                    'encodeURIComponent': 1,
-                    'firstin': 1,
-                    'off': 1,
-                    'first': 1,
-                    'step': 2,
-                    'co_id': company_code,
-                    'year': year
-                }
-
-                for assignment in onclick_assignments:
-                    m = re.search(detail_payload_re, assignment)
-                    if m:
-                        matched_groups = m.groups()
-                        detail_payload[matched_groups[0]] = matched_groups[1]
-
-                local_detail_payloads.append(detail_payload)
-
-            self.redis_cache.setex(payload_hash_key, 60 * 60, json.dumps(local_detail_payloads))
-            detail_payloads = detail_payloads + local_detail_payloads
-
-        for detail_payload in detail_payloads:
-            spoken_date = datetime.strptime(detail_payload['spoke_date'], '%Y%m%d').date()
-
-            if spoken_date > end_date:
-                break
-
-            if spoken_date >= begin_date:
-                detail_payload_hash_key = to_sha1(json.dumps(detail_payload))
-
-                try:
-                    material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)
-
-                    spoken_date_str = material_info.spoken_date.strftime('%Y/%m/%d')
-                    spoken_roc_date_str = spoken_date_str.replace(spoken_date_str[:4],
-                                                                  str(int(spoken_date_str[:4]) - 1911))
-
-                    fact_date_str = material_info.fact_date.strftime('%Y/%m/%d')
-                    fact_roc_date_str = fact_date_str.replace(fact_date_str[:4],
-                                                              str(int(fact_date_str[:4]) - 1911))
-                except DoesNotExist:
-                    soup = soup_from_mops(detail_payload)
-                    information_body_table = soup.find_all('table')[2]
-                    rows = information_body_table.find_all('tr')
-
-                    material_info = MaterialInformation()
-                    material_info.id = detail_payload_hash_key
-
-                    spoken_roc_date_str = rows[0].find_all('td')[3].text.strip()
-                    spoken_date_str = spoken_roc_date_str.replace(spoken_roc_date_str[:3],
-                                                                  str(int(spoken_roc_date_str[:3]) + 1911))
-                    material_info.spoken_date = datetime.strptime(spoken_date_str, '%Y/%m/%d')
-
-                    fact_roc_date_str = rows[3].find_all('td')[3].text.strip()
-                    fact_date_str = fact_roc_date_str.replace(fact_roc_date_str[:3],
-                                                              str(int(fact_roc_date_str[:3]) + 1911))
-                    material_info.fact_date = datetime.strptime(fact_date_str, '%Y/%m/%d')
-
-                    material_info.title = rows[2].find_all('td')[1].text.strip()
-                    material_info.content = rows[4].find_all('td')[1].text.strip()
-
-                    material_info.save()
-
-                messages.append(f'【發言日期】{spoken_roc_date_str}'
-                                f'\n【事實發生日】{fact_roc_date_str}'
-                                f'\n【主旨】\n{material_info.title}'
-                                f'\n【說明】\n{material_info.content}'[:2000])
-
-        return messages
 
     @staticmethod
     def help_message():
@@ -230,3 +116,121 @@ def to_sha1(text):
     import hashlib
     encoder = hashlib.sha1(text.encode(encoding='utf-8'))
     return encoder.hexdigest()
+
+
+def retrieve_material_information_within_date_range(company_code, begin_date, end_date=date.today()):
+    years = []
+
+    tmp_end_date = date(end_date.year, end_date.month, end_date.day)
+    while tmp_end_date >= begin_date:
+        years.append(tmp_end_date.year - 1911)
+        tmp_end_date = end_date - timedelta(days=tmp_end_date.timetuple().tm_yday)
+
+    messages = []
+    detail_payloads = []
+
+    for year in years:
+        payload = {
+            'encodeURIComponent': 1,
+            'step': 1,
+            'firstin': 1,
+            'off': 1,
+            'queryName': 'co_id',
+            'inpuType': 'co_id',
+            'TYPEK': 'all',
+            'co_id': company_code,
+            'year': year
+        }
+
+        payload_hash_key = to_sha1(json.dumps(payload))
+        detail_payloads_str = redis_cache.get_val(payload_hash_key)
+        local_detail_payloads = []
+        if detail_payloads_str is not None:
+            local_detail_payloads = json.loads(detail_payloads_str)
+            detail_payloads = detail_payloads + local_detail_payloads
+            continue
+
+        soup = soup_from_mops(payload)
+        all_tables = soup.find_all('table')
+        if not all_tables or len(all_tables) < 2:
+            continue
+
+        material_information_table = all_tables[1]
+
+        for information_row in material_information_table.find_all('tr')[1:]:
+            button_column = information_row.find_all('td')[5]
+            button = button_column.find('input')
+
+            onclick = button['onclick']
+            onclick_assignments = list(filter(None, onclick.split(';')))
+            onclick_assignments = onclick_assignments
+
+            detail_payload = {
+                'encodeURIComponent': 1,
+                'firstin': 1,
+                'off': 1,
+                'first': 1,
+                'step': 2,
+                'co_id': company_code,
+                'year': year
+            }
+
+            for assignment in onclick_assignments:
+                m = re.search(detail_payload_re, assignment)
+                if m:
+                    matched_groups = m.groups()
+                    detail_payload[matched_groups[0]] = matched_groups[1]
+
+            local_detail_payloads.append(detail_payload)
+
+        redis_cache.set_val(payload_hash_key, 60 * 60, json.dumps(local_detail_payloads))
+        detail_payloads = detail_payloads + local_detail_payloads
+
+    for detail_payload in detail_payloads:
+        spoken_date = datetime.strptime(detail_payload['spoke_date'], '%Y%m%d').date()
+
+        if spoken_date > end_date:
+            break
+
+        if spoken_date >= begin_date:
+            detail_payload_hash_key = to_sha1(json.dumps(detail_payload))
+
+            try:
+                material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)
+
+                spoken_date_str = material_info.spoken_date.strftime('%Y/%m/%d')
+                spoken_roc_date_str = spoken_date_str.replace(spoken_date_str[:4],
+                                                              str(int(spoken_date_str[:4]) - 1911))
+
+                fact_date_str = material_info.fact_date.strftime('%Y/%m/%d')
+                fact_roc_date_str = fact_date_str.replace(fact_date_str[:4],
+                                                          str(int(fact_date_str[:4]) - 1911))
+            except DoesNotExist:
+                soup = soup_from_mops(detail_payload)
+                information_body_table = soup.find_all('table')[2]
+                rows = information_body_table.find_all('tr')
+
+                material_info = MaterialInformation()
+                material_info.id = detail_payload_hash_key
+
+                spoken_roc_date_str = rows[0].find_all('td')[3].text.strip()
+                spoken_date_str = spoken_roc_date_str.replace(spoken_roc_date_str[:3],
+                                                              str(int(spoken_roc_date_str[:3]) + 1911))
+                material_info.spoken_date = datetime.strptime(spoken_date_str, '%Y/%m/%d')
+
+                fact_roc_date_str = rows[3].find_all('td')[3].text.strip()
+                fact_date_str = fact_roc_date_str.replace(fact_roc_date_str[:3],
+                                                          str(int(fact_roc_date_str[:3]) + 1911))
+                material_info.fact_date = datetime.strptime(fact_date_str, '%Y/%m/%d')
+
+                material_info.title = rows[2].find_all('td')[1].text.strip()
+                material_info.content = rows[4].find_all('td')[1].text.strip()
+
+                material_info.save()
+
+            messages.append(f'【發言日期】{spoken_roc_date_str}'
+                            f'\n【事實發生日】{fact_roc_date_str}'
+                            f'\n【主旨】\n{material_info.title}'
+                            f'\n【說明】\n{material_info.content}'[:2000])
+
+    return messages
