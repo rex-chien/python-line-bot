@@ -1,15 +1,12 @@
 import json
 
 import twder
-from linebot.models import (
-    TextSendMessage,
-)
-from mongoengine.queryset.visitor import Q
 from mongoengine import DoesNotExist
+from mongoengine.queryset.visitor import Q
 
+from domain import ExchangeNotification, Notification, NotificationFlag
 from line_message_handlers.abstract_line_bot import AbstractLineMessageHandler, push_message
 from persistence import redis_cache
-from domain import ExchangeNotification, Notification, NotificationFlag
 
 __all__ = ('ExchangeRateLineMessageHandler', 'start_schedule_task')
 

@@ -58,7 +58,8 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         begin_date = date.today()
         begin_date = begin_date + timedelta(days=-prev_n_days + 1)
 
-        messages = retrieve_material_information_within_date_range(company_code, begin_date)
+        material_information_list = retrieve_material_information_within_date_range(company_code, begin_date)
+        messages = map(lambda info: info.to_line_message(), material_information_list)
 
         if not messages:
             return f'[{company_code}] 近 [{prev_n_days} 天] 無重大訊息'
@@ -82,7 +83,8 @@ class MopsLineMessageHandler(AbstractLineMessageHandler):
         if (end_date - begin_date).days > 90:
             raise CommandException('日期範圍須在 90 天內')
 
-        messages = retrieve_material_information_within_date_range(company_code, begin_date, end_date)
+        material_information_list = retrieve_material_information_within_date_range(company_code, begin_date, end_date)
+        messages = map(lambda info: info.to_line_message(), material_information_list)
 
         if not messages:
             return f'[{company_code}] 於 [{begin_date.strftime("%Y-%m-%d")}~{end_date.strftime("%Y-%m-%d")}] 天無重大訊息'
@@ -126,7 +128,6 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
         years.append(tmp_end_date.year - 1911)
         tmp_end_date = end_date - timedelta(days=tmp_end_date.timetuple().tm_yday)
 
-    messages = []
     detail_payloads = []
 
     for year in years:
@@ -186,6 +187,8 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
         redis_cache.set_val(payload_hash_key, 60 * 60, json.dumps(local_detail_payloads))
         detail_payloads = detail_payloads + local_detail_payloads
 
+    material_info_list = []
+
     for detail_payload in detail_payloads:
         spoken_date = datetime.strptime(detail_payload['spoke_date'], '%Y%m%d').date()
 
@@ -197,14 +200,6 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
 
             try:
                 material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)
-
-                spoken_date_str = material_info.spoken_date.strftime('%Y/%m/%d')
-                spoken_roc_date_str = spoken_date_str.replace(spoken_date_str[:4],
-                                                              str(int(spoken_date_str[:4]) - 1911))
-
-                fact_date_str = material_info.fact_date.strftime('%Y/%m/%d')
-                fact_roc_date_str = fact_date_str.replace(fact_date_str[:4],
-                                                          str(int(fact_date_str[:4]) - 1911))
             except DoesNotExist:
                 soup = soup_from_mops(detail_payload)
                 information_body_table = soup.find_all('table')[2]
@@ -228,9 +223,6 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
 
                 material_info.save()
 
-            messages.append(f'【發言日期】{spoken_roc_date_str}'
-                            f'\n【事實發生日】{fact_roc_date_str}'
-                            f'\n【主旨】\n{material_info.title}'
-                            f'\n【說明】\n{material_info.content}'[:2000])
+            material_info_list.append(material_info)
 
-    return messages
+    return material_info_list
