@@ -12,12 +12,12 @@ from linebot.exceptions import (
 from linebot.models import (
     MessageEvent, TextMessage)
 
-from line_message_handlers import *
+from line_event_handlers import *
 
 app = Flask(__name__)
 
-exchange_rate_message_handler = ExchangeRateLineMessageHandler()
-mops_message_handler = MopsLineMessageHandler()
+exchange_rate_message_handler = ExchangeRateEventHandler()
+mops_message_handler = MopsEventHandler()
 
 
 @app.route("/callback", methods=['POST'])
@@ -51,9 +51,9 @@ def handle_message(event):
         mops_message_handler.handle_event(event)
     else:
         reply_message(event.reply_token,
-                      ExchangeRateLineMessageHandler.help_message()
+                      ExchangeRateEventHandler.help_message()
                       + '\n\n'
-                      + MopsLineMessageHandler.help_message())
+                      + MopsEventHandler.help_message())
 
 
 @app.route('/')

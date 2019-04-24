@@ -5,10 +5,10 @@ from mongoengine import DoesNotExist
 from mongoengine.queryset.visitor import Q
 
 from domain import ExchangeNotification, Notification, NotificationFlag
-from line_message_handlers.abstract_line_bot import AbstractLineMessageHandler, push_message
+from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
 from persistence import redis_cache
 
-__all__ = ('ExchangeRateLineMessageHandler', 'start_schedule_task')
+__all__ = ('ExchangeRateEventHandler', 'start_schedule_task')
 
 
 def cache_currency_name_dic():
@@ -77,7 +77,7 @@ def start_schedule_task():
             # self.collection.replace_one({'source': notification['source']}, notification, upsert=True)
 
 
-class ExchangeRateLineMessageHandler(AbstractLineMessageHandler):
+class ExchangeRateEventHandler(AbstractLineEventHandler):
     def __init__(self):
         super().__init__()
 

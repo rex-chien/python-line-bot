@@ -12,7 +12,7 @@ from CommandException import CommandException
 __all__ = (
     'line_bot_api', 'handler',
     'push_message', 'reply_message',
-    'AbstractLineMessageHandler')
+    'AbstractLineEventHandler')
 
 line_bot_api = LineBotApi(os.getenv("CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
@@ -30,7 +30,7 @@ def reply_message(reply_token, message_text):
         TextSendMessage(text=message_text))
 
 
-class AbstractLineMessageHandler(abc.ABC):
+class AbstractLineEventHandler(abc.ABC):
     HELP_MESSAGE = str
 
     def __init__(self):

@@ -7,7 +7,7 @@ import json
 from bs4 import BeautifulSoup
 from mongoengine import DoesNotExist
 
-from line_message_handlers.abstract_line_bot import AbstractLineMessageHandler, push_message
+from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
 from domain import MaterialInformation
 from CommandException import CommandException
 from persistence import redis_cache
@@ -22,10 +22,10 @@ headers = {
 
 detail_payload_re = r"^document.t05st01_fm.(.+).value='(.+)'$"
 
-__all__ = ('MopsLineMessageHandler', 'retrieve_material_information_within_date_range')
+__all__ = ('MopsEventHandler', 'retrieve_material_information_within_date_range')
 
 
-class MopsLineMessageHandler(AbstractLineMessageHandler):
+class MopsEventHandler(AbstractLineEventHandler):
     def __init__(self):
         super().__init__()
 
@@ -196,7 +196,9 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
             break
 
         if spoken_date >= begin_date:
-            detail_payload_hash_key = to_sha1(json.dumps(detail_payload))
+            plain_key = f"{detail_payload['co_id']}.{detail_payload['year']}." \
+                f"{detail_payload['spoke_date']}.{detail_payload['seq_no']}"
+            detail_payload_hash_key = to_sha1(plain_key)
 
             try:
                 material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)

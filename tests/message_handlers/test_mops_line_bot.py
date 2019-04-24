@@ -1,22 +1,32 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from datetime import date
+import datetime
 
 import os
 
 from linebot.models import MessageEvent, TextMessage, SourceUser
 
-with patch.dict(os.environ, {
+fake_os_environ = {
     'CHANNEL_ACCESS_TOKEN': 'channelaccesstoken',
     'CHANNEL_SECRET': 'channelsecret',
     'MONGODB_DATABASE': 'mongoenginetest',
     'MONGODB_URI': 'mongomock://localhost',
     'REDIS_URL': 'redis://localhost'
-}):
-    from line_message_handlers import *
-    import sys
+}
 
-    a = sys.modules['line_message_handlers']
+fake_today = datetime.date(2019, 3, 4)
+
+
+class FakeDate(datetime.date):
+    @classmethod
+    def today(cls):
+        return cls(fake_today.year, fake_today.month, fake_today.day)
+
+
+datetime.date = FakeDate
+
+with patch.dict(os.environ, fake_os_environ):
+    from line_event_handlers import *
 
 
     class TestMopsLineBot(unittest.TestCase):
@@ -24,19 +34,19 @@ with patch.dict(os.environ, {
         message_event = None
 
         def setUp(self):
-            self.handler = MopsLineMessageHandler()
+            self.handler = MopsEventHandler()
             self.message_event = MessageEvent()
             self.message_event.reply_token = 'replytoken'
             self.message_event.source = SourceUser(user_id='userid')
 
             self.push_message = patch(
-                'line_message_handlers.abstract_line_bot.push_message',
+                'line_event_handlers.abstract_line_event_handler.push_message',
                 MagicMock()).start()
             self.reply_message = patch(
-                'line_message_handlers.abstract_line_bot.reply_message',
+                'line_event_handlers.abstract_line_event_handler.reply_message',
                 MagicMock()).start()
             self.retrieve_material_information_within_date_range = patch(
-                'line_message_handlers.mops_line_bot.retrieve_material_information_within_date_range',
+                'line_event_handlers.mops_event_handler.retrieve_material_information_within_date_range',
                 MagicMock()).start()
 
         def tearDown(self):
@@ -45,7 +55,14 @@ with patch.dict(os.environ, {
         def testRecentAction(self):
             self.message_event.message = TextMessage(text='2330 RECENT')
             self.handler.handle_event(self.message_event)
-            self.retrieve_material_information_within_date_range.assert_called_once_with('2330', date.today())
+            self.retrieve_material_information_within_date_range \
+                .assert_called_once_with('2330', fake_today)
+
+        def testRecent7Action(self):
+            self.message_event.message = TextMessage(text='2330 RECENT 7')
+            self.handler.handle_event(self.message_event)
+            self.retrieve_material_information_within_date_range \
+                .assert_called_once_with('2330', fake_today - datetime.timedelta(days=6))
 
         def testHelpAction(self):
             self.message_event.message = TextMessage(text='help')
