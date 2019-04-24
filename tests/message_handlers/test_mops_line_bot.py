@@ -53,16 +53,38 @@ with patch.dict(os.environ, fake_os_environ):
             patch.stopall()
 
         def testRecentAction(self):
-            self.message_event.message = TextMessage(text='2330 RECENT')
-            self.handler.handle_event(self.message_event)
-            self.retrieve_material_information_within_date_range \
-                .assert_called_once_with('2330', fake_today)
+            self.givenCommandShouldRetrieveWith_CompanyCode_BeginDate_EndDate(
+                command='2330 RECENT',
+                company_code='2330',
+                begin_date=fake_today
+            )
 
         def testRecent7Action(self):
-            self.message_event.message = TextMessage(text='2330 RECENT 7')
+            self.givenCommandShouldRetrieveWith_CompanyCode_BeginDate_EndDate(
+                command='2330 RECENT 7',
+                company_code='2330',
+                begin_date=fake_today - datetime.timedelta(days=6)
+            )
+
+        def testRange20190101To20190304(self):
+            self.givenCommandShouldRetrieveWith_CompanyCode_BeginDate_EndDate(
+                command='2330 RANGE 20190101 20190304',
+                company_code='2330',
+                begin_date=datetime.date(2019, 1, 1),
+                end_date=datetime.date(2019, 3, 4)
+            )
+
+        def givenCommandShouldRetrieveWith_CompanyCode_BeginDate_EndDate(
+                self, command, company_code, begin_date, end_date=None):
+            self.message_event.message = TextMessage(text=command)
             self.handler.handle_event(self.message_event)
-            self.retrieve_material_information_within_date_range \
-                .assert_called_once_with('2330', fake_today - datetime.timedelta(days=6))
+
+            if end_date:
+                self.retrieve_material_information_within_date_range \
+                    .assert_called_once_with(company_code, begin_date, end_date)
+            else:
+                self.retrieve_material_information_within_date_range \
+                    .assert_called_once_with(company_code, begin_date)
 
         def testHelpAction(self):
             self.message_event.message = TextMessage(text='help')
