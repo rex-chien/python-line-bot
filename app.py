@@ -1,26 +1,24 @@
 import os
+
+import requests
 from dotenv import load_dotenv
-from flask import Flask, request, abort
-from linebot import (
-    LineBotApi, WebhookHandler
-)
+
+load_dotenv()
+
+from flask import Flask, request, abort, render_template, make_response
 from linebot.exceptions import (
     InvalidSignatureError
 )
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage)
+    MessageEvent, TextMessage)
 
-import requests
-
-from line_message_handlers import (
-    ExchangeRateLineMessageHandler, MopsLineMessageHandler, AbstractLineMessageHandler)
-
-load_dotenv()
+from line_event_handlers import *
+import domain
 
 app = Flask(__name__)
 
-exchange_rate_message_handler = ExchangeRateLineMessageHandler()
-mops_message_handler = MopsLineMessageHandler()
+exchange_rate_message_handler = ExchangeRateEventHandler()
+mops_message_handler = MopsEventHandler()
 
 
 @app.route("/callback", methods=['POST'])
@@ -34,14 +32,14 @@ def callback():
 
     # handle webhook body
     try:
-        AbstractLineMessageHandler.handler.handle(body, signature)
+        handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
 
     return 'OK'
 
 
-@AbstractLineMessageHandler.handler.add(MessageEvent, message=TextMessage)
+@handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     message = event.message.text
     commands = message.split(' ')
@@ -53,16 +51,29 @@ def handle_message(event):
     elif command == 'mi':
         mops_message_handler.handle_event(event)
     else:
-        exchange_rate_message_handler \
-            .reply_message(event.reply_token,
-                           ExchangeRateLineMessageHandler.help_message()
-                           + '\n\n'
-                           + MopsLineMessageHandler.help_message())
+        reply_message(event.reply_token,
+                      ExchangeRateEventHandler.help_message()
+                      + '\n\n'
+                      + MopsEventHandler.help_message())
 
 
 @app.route('/')
 def hello_world():
     return 'hello world!'
+
+
+@app.route('/mi/<material_info_id>')
+def mi_detail(material_info_id):
+    try:
+        material_info = domain.MaterialInformation.objects.get(id=material_info_id)
+        return render_template('mi_detail.html', material_info=material_info)
+    except:
+        return render_template('404.html'), 404
+
+
+# @app.errorhandler(404)
+# def page_not_found(error):
+#     return render_template('404.html'), 404
 
 
 if __name__ == '__main__':
@@ -74,7 +85,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def scheduled_report():
-    exchange_rate_message_handler.start_schedule_task()
+    start_schedule_task()
 
 
 def wakeup():
@@ -82,7 +93,8 @@ def wakeup():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
+# scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
+# scheduler.add_job(func=scheduled_report, trigger="interval", seconds=10)
 scheduler.add_job(func=wakeup, trigger="interval", minutes=10)
 scheduler.start()
 

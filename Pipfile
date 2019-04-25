@@ -3,8 +3,6 @@ name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
 
-[dev-packages]
-
 [packages]
 twder = "~=0.1.4"
 apscheduler = "~=3.6.0"
@@ -23,3 +21,6 @@ python-dateutil = "~=2.7.5"
 
 [requires]
 python_version = "3.7"
+
+[dev-packages]
+mongomock = "~=3.14.0"
