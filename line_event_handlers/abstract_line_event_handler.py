@@ -21,13 +21,13 @@ handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
 def push_message(to, message_text):
     line_bot_api.push_message(
         to,
-        TextSendMessage(text=message_text))
+        TextSendMessage(text=message_text[:2000]))
 
 
 def reply_message(reply_token, message_text):
     line_bot_api.reply_message(
         reply_token,
-        TextSendMessage(text=message_text))
+        TextSendMessage(text=message_text[:2000]))
 
 
 class AbstractLineEventHandler(abc.ABC):
@@ -55,7 +55,7 @@ class AbstractLineEventHandler(abc.ABC):
                 reply_message(reply_token, str(e))
             except Exception as e:
                 reply_message(reply_token, '系統異常')
-                # self.reply_message(reply_token, str(e))
+                # reply_message(reply_token, str(e))
 
     @abc.abstractmethod
     def _map_action(self, commands):

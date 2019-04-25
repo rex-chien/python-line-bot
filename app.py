@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template, make_response
 from linebot.exceptions import (
     InvalidSignatureError
 )
@@ -13,6 +13,7 @@ from linebot.models import (
     MessageEvent, TextMessage)
 
 from line_event_handlers import *
+import domain
 
 app = Flask(__name__)
 
@@ -61,6 +62,20 @@ def hello_world():
     return 'hello world!'
 
 
+@app.route('/mi/<material_info_id>')
+def mi_detail(material_info_id):
+    try:
+        material_info = domain.MaterialInformation.objects.get(id=material_info_id)
+        return render_template('mi_detail.html', material_info=material_info)
+    except:
+        return render_template('404.html'), 404
+
+
+# @app.errorhandler(404)
+# def page_not_found(error):
+#     return render_template('404.html'), 404
+
+
 if __name__ == '__main__':
     app.run()
 
@@ -79,7 +94,7 @@ def wakeup():
 
 scheduler = BackgroundScheduler()
 # scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
-scheduler.add_job(func=scheduled_report, trigger="interval", seconds=10)
+# scheduler.add_job(func=scheduled_report, trigger="interval", seconds=10)
 scheduler.add_job(func=wakeup, trigger="interval", minutes=10)
 scheduler.start()
 
