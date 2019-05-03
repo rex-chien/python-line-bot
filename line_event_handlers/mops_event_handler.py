@@ -34,6 +34,7 @@ class MopsEventHandler(AbstractLineEventHandler):
         actions = {
             'recent': self._recent_action,
             'range': self._range_action,
+            'sub': self._subscribe_action,
             'help': self._help_action,
         }
         if len(commands) > 1:
@@ -59,7 +60,8 @@ class MopsEventHandler(AbstractLineEventHandler):
         begin_date = date.today()
         begin_date = begin_date + timedelta(days=-prev_n_days + 1)
 
-        material_information_list = retrieve_material_information_within_date_range(company_code, begin_date)
+        material_information_list = retrieve_material_information_within_date_range(
+            company_code=company_code, begin_date=begin_date)
         messages = list(map(format_line_message, material_information_list))
 
         if not messages:
@@ -84,13 +86,17 @@ class MopsEventHandler(AbstractLineEventHandler):
         if (end_date - begin_date).days > 90:
             raise CommandException('日期範圍須在 90 天內')
 
-        material_information_list = retrieve_material_information_within_date_range(company_code, begin_date, end_date)
+        material_information_list = retrieve_material_information_within_date_range(
+            company_code=company_code, begin_date=begin_date, end_date=end_date)
         messages = list(map(format_line_message, material_information_list))
 
         if not messages:
             return f'[{company_code}] 於 [{begin_date.strftime("%Y-%m-%d")}~{end_date.strftime("%Y-%m-%d")}] 天無重大訊息'
 
         return messages
+
+    def _subscribe_action(self, **kwargs):
+        pass
 
     def _help_action(self, **kwargs):
         return self.help_message()
