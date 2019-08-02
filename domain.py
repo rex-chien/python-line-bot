@@ -53,4 +53,4 @@ class MaterialInformation(Document):
 class MaterialInformationSubscription(Document):
     company_code = StringField(required=True, primary_key=True)
     sources = ListField(StringField())
-    last_pushed_id = ObjectIdField()
+    last_pushed_id = StringField()

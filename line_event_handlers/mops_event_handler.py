@@ -13,11 +13,11 @@ from domain import MaterialInformation, MaterialInformationSubscription
 from CommandException import CommandException
 from persistence import redis_cache
 
-mops_api_prefix = 'http://mops.twse.com.tw/mops/web'
+mops_api_prefix = 'https://mops.twse.com.tw/mops/web'
 headers = {
     'Host': 'mops.twse.com.tw',
-    'Origin': 'http://mops.twse.com.tw',
-    'Referer': 'http://mops.twse.com.tw/mops/web/t146sb05',
+    'Origin': 'https://mops.twse.com.tw',
+    'Referer': 'https://mops.twse.com.tw/mops/web/t146sb05',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36'
 }
 
@@ -100,7 +100,7 @@ class MopsEventHandler(AbstractLineEventHandler):
         commands = kwargs['commands']
         company_code = commands[0]
 
-        MaterialInformationSubscription.objects(id=company_code).upsert_one(add_to_set__sources=sender_id)
+        MaterialInformationSubscription.objects(company_code=company_code).upsert_one(add_to_set__sources=sender_id)
 
         return f'成功訂閱 [{company_code}] 的重大訊息'
 
