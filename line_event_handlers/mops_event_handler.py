@@ -9,7 +9,7 @@ from mongoengine import DoesNotExist
 import os
 
 from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
-from domain import MaterialInformation
+from domain import MaterialInformation, MaterialInformationSubscription
 from CommandException import CommandException
 from persistence import redis_cache
 
@@ -23,7 +23,7 @@ headers = {
 
 detail_payload_re = r"^document.t05st01_fm.(.+).value='(.+)'$"
 
-__all__ = ('MopsEventHandler', 'retrieve_material_information_within_date_range')
+__all__ = ('MopsEventHandler', 'retrieve_material_information_within_date_range', 'start_mops_schedule_task')
 
 
 class MopsEventHandler(AbstractLineEventHandler):
@@ -96,7 +96,13 @@ class MopsEventHandler(AbstractLineEventHandler):
         return messages
 
     def _subscribe_action(self, **kwargs):
-        pass
+        sender_id = kwargs['sender_id']
+        commands = kwargs['commands']
+        company_code = commands[0]
+
+        MaterialInformationSubscription.objects(id=company_code).upsert_one(add_to_set__sources=sender_id)
+
+        return f'成功訂閱 [{company_code}] 的重大訊息'
 
     def _help_action(self, **kwargs):
         return self.help_message()
@@ -109,6 +115,7 @@ class MopsEventHandler(AbstractLineEventHandler):
                '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
                '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
                '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
+               '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
                '顯示指令說明：MI HELP\n' + \
                '【資料來源】\n' + \
                '公開資訊觀測站：http://mops.twse.com.tw/mops/web/index'
@@ -260,3 +267,33 @@ def read_material_info_details(detail_payloads, begin_date, end_date):
             material_info_list.append(material_info)
 
     return material_info_list
+
+
+def start_mops_schedule_task():
+    today = date.today()
+    subscriptions = MaterialInformationSubscription.objects()
+
+    for subscription in subscriptions:
+        company_code = subscription.company_code
+        last_pushed_id = subscription.last_pushed_id
+
+        infomations = retrieve_material_information_within_date_range(company_code, today)
+
+        for index, info in enumerate(infomations):
+            if info.id == last_pushed_id:
+                break
+        else:
+            index = -1
+
+        for unpushed_info in infomations[index + 1:]:
+            for source in subscription.sources:
+                push_message(
+                    source,
+                    format_line_message(unpushed_info)
+                )
+            last_pushed_id = unpushed_info.id
+
+        subscription.last_pushed_id = last_pushed_id
+        subscription.save()
+
+

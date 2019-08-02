@@ -8,7 +8,7 @@ from domain import ExchangeNotification, Notification, NotificationFlag
 from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
 from persistence import redis_cache
 
-__all__ = ('ExchangeRateEventHandler', 'start_schedule_task')
+__all__ = ('ExchangeRateEventHandler', 'start_rate_schedule_task')
 
 
 def cache_currency_name_dic():
@@ -39,7 +39,7 @@ def cache_now(currency):
     return cache_now_all()[currency]
 
 
-def start_schedule_task():
+def start_rate_schedule_task():
     now_all = cache_now_all()
     currency_names_dict = cache_currency_name_dic()
 

@@ -10,12 +10,12 @@ import abc
 from CommandException import CommandException
 
 __all__ = (
-    'line_bot_api', 'handler',
+    'line_bot_api', 'webhook_handler',
     'push_message', 'reply_message',
     'AbstractLineEventHandler')
 
 line_bot_api = LineBotApi(os.getenv("CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
+webhook_handler = WebhookHandler(os.getenv("CHANNEL_SECRET"))
 
 
 def push_message(to, message_text):

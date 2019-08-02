@@ -88,6 +88,7 @@ class TestMopsMessageHandler:
                    '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
                    '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
                    '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
+                   '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
                    '顯示指令說明：MI HELP\n' + \
                    '【資料來源】\n' + \
                    '公開資訊觀測站：http://mops.twse.com.tw/mops/web/index'

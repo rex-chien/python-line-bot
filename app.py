@@ -12,13 +12,13 @@ from linebot.exceptions import (
 from linebot.models import (
     MessageEvent, TextMessage)
 
-from line_event_handlers import *
+import line_event_handlers
 import domain
 
 app = Flask(__name__)
 
-exchange_rate_message_handler = ExchangeRateEventHandler()
-mops_message_handler = MopsEventHandler()
+exchange_rate_message_handler = line_event_handlers.ExchangeRateEventHandler()
+mops_message_handler = line_event_handlers.MopsEventHandler()
 
 
 @app.route("/callback", methods=['POST'])
@@ -32,14 +32,14 @@ def callback():
 
     # handle webhook body
     try:
-        handler.handle(body, signature)
+        line_event_handlers.webhook_handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
 
     return 'OK'
 
 
-@handler.add(MessageEvent, message=TextMessage)
+@line_event_handlers.webhook_handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     message = event.message.text
     commands = message.split(' ')
@@ -51,10 +51,10 @@ def handle_message(event):
     elif command == 'mi':
         mops_message_handler.handle_event(event)
     else:
-        reply_message(event.reply_token,
-                      ExchangeRateEventHandler.help_message()
-                      + '\n\n'
-                      + MopsEventHandler.help_message())
+        line_event_handlers.reply_message(event.reply_token,
+                                          line_event_handlers.ExchangeRateEventHandler.help_message()
+                                          + '\n\n'
+                                          + line_event_handlers.MopsEventHandler.help_message())
 
 
 @app.route('/')
@@ -84,17 +84,13 @@ import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 
 
-def scheduled_report():
-    start_schedule_task()
-
-
 def wakeup():
     requests.get(os.getenv('WAKEUP_URL'))
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=scheduled_report, trigger="interval", minutes=1)
-# scheduler.add_job(func=scheduled_report, trigger="interval", seconds=10)
+scheduler.add_job(func=line_event_handlers.start_rate_schedule_task, trigger="interval", minutes=1)
+scheduler.add_job(func=line_event_handlers.start_mops_schedule_task, trigger="interval", minutes=10)
 scheduler.add_job(func=wakeup, trigger="interval", minutes=10)
 scheduler.start()
 
