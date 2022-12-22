@@ -1,38 +1,24 @@
 import json
 
+import cachetools.func
 import twder
 from mongoengine import DoesNotExist
 from mongoengine.queryset.visitor import Q
 
 from domain import ExchangeNotification, Notification, NotificationFlag
 from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
-from persistence import redis_cache
 
 __all__ = ('ExchangeRateEventHandler', 'start_rate_schedule_task')
 
 
+@cachetools.func.ttl_cache(ttl=60 * 60 * 24)
 def cache_currency_name_dic():
-    twder_currency_name_dict_key = 'twder.currency_name_dict'
-    currency_name_dict_str = redis_cache.get_val(twder_currency_name_dict_key)
-    if currency_name_dict_str is None:
-        currency_name_dict = twder.currency_name_dict()
-        currency_name_dict_str = json.dumps(currency_name_dict)
-        # 1 day
-        redis_cache.set_val(twder_currency_name_dict_key, 60 * 60 * 24, currency_name_dict_str)
-
-    return json.loads(currency_name_dict_str)
+    return twder.currency_name_dict()
 
 
+@cachetools.func.ttl_cache(ttl=60 * 10)
 def cache_now_all():
-    twder_now_all_key = 'twder.now_all'
-    now_all_str = redis_cache.get_val(twder_now_all_key)
-    if now_all_str is None:
-        now_all = twder.now_all()
-        now_all_str = json.dumps(now_all)
-        # 10 minutes
-        redis_cache.set_val(twder_now_all_key, 60 * 10, now_all_str)
-
-    return json.loads(now_all_str)
+    return twder.now_all()
 
 
 def cache_now(currency):
@@ -85,13 +71,13 @@ class ExchangeRateEventHandler(AbstractLineEventHandler):
     def help_message():
         return '==台灣銀行牌告匯率==\n' \
                '【指令說明】\n' + \
-               '設定匯率到價提醒：ER SET [幣別] [匯率] [B/S]\n' + \
-               '刪除匯率到價提醒：ER DEL [幣別] [B/S]\n' + \
-               '取得即期匯率：ER GET [幣別]\n' + \
-               '顯示指令說明：ER HELP\n' + \
-               '* [B/S] B=銀行買入/S=銀行賣出\n' + \
-               '【資料來源】\n' + \
-               '臺灣銀行牌告匯率：http://rate.bot.com.tw/xrt?Lang=zh-TW'
+            '設定匯率到價提醒：ER SET [幣別] [匯率] [B/S]\n' + \
+            '刪除匯率到價提醒：ER DEL [幣別] [B/S]\n' + \
+            '取得即期匯率：ER GET [幣別]\n' + \
+            '顯示指令說明：ER HELP\n' + \
+            '* [B/S] B=銀行買入/S=銀行賣出\n' + \
+            '【資料來源】\n' + \
+            '臺灣銀行牌告匯率：https://rate.bot.com.tw/xrt?Lang=zh-TW'
 
     def _map_action(self, commands):
         actions = {

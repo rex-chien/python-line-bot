@@ -1,24 +1,25 @@
+import os
+import random
 import re
+import time
 from datetime import (
     datetime, date, timedelta
 )
+
+import cachetools.func
 import requests
-import json
 from bs4 import BeautifulSoup
 from mongoengine import DoesNotExist
-import os
 
-from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
-from domain import MaterialInformation, MaterialInformationSubscription
 from CommandException import CommandException
-from persistence import redis_cache
+from domain import MaterialInformation, MaterialInformationSubscription
+from line_event_handlers.abstract_line_event_handler import AbstractLineEventHandler, push_message
 
 mops_api_prefix = 'https://mops.twse.com.tw/mops/web'
 headers = {
     'Host': 'mops.twse.com.tw',
     'Origin': 'https://mops.twse.com.tw',
     'Referer': 'https://mops.twse.com.tw/mops/web/t146sb05',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36'
 }
 
 detail_payload_re = r"^document.t05st01_fm.(.+).value='(.+)'$"
@@ -111,14 +112,14 @@ class MopsEventHandler(AbstractLineEventHandler):
     def help_message():
         return '==重大訊息==\n' \
                '【指令說明】\n' + \
-               '查詢今天重大訊息：MI [公司代號] RECENT\n' + \
-               '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
-               '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
-               '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
-               '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
-               '顯示指令說明：MI HELP\n' + \
-               '【資料來源】\n' + \
-               '公開資訊觀測站：http://mops.twse.com.tw/mops/web/index'
+            '查詢今天重大訊息：MI [公司代號] RECENT\n' + \
+            '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
+            '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
+            '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
+            '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
+            '顯示指令說明：MI HELP\n' + \
+            '【資料來源】\n' + \
+            '公開資訊觀測站：https://mops.twse.com.tw/mops/web/index'
 
 
 application_url_root = os.getenv('APPLICATION_URL_ROOT')
@@ -126,13 +127,17 @@ application_url_root = os.getenv('APPLICATION_URL_ROOT')
 
 def format_line_message(material_info: MaterialInformation):
     return f'【發言日期】{material_info.spoken_roc_date}' \
-        f'\n【事實發生日】{material_info.fact_roc_date}' \
-        f'\n【主旨】\n{material_info.title}' \
-        f'\n{application_url_root}/mi/{material_info.id}'
+           f'\n【事實發生日】{material_info.fact_roc_date}' \
+           f'\n【主旨】\n{material_info.title}' \
+           f'\n{application_url_root}/mi/{material_info.id}'
 
 
 def soup_from_mops(payload):
-    page_source = requests.get(mops_api_prefix + '/ajax_t05st01', params=payload, headers=headers).text
+    from fake_useragent import UserAgent
+    ua = UserAgent()
+    local_headers = headers.copy()
+    local_headers['User-Agent'] = ua.random
+    page_source = requests.get(mops_api_prefix + '/ajax_t05st01', params=payload, headers=local_headers).text
     soup = BeautifulSoup(page_source, 'html.parser')
 
     return soup
@@ -155,6 +160,7 @@ def retrieve_material_information_within_date_range(company_code, begin_date, en
     return read_material_info_details(detail_payloads, begin_date, end_date)
 
 
+@cachetools.func.ttl_cache(ttl=60 * 60)
 def get_detail_payloads(company_code, year):
     payload = {
         'encodeURIComponent': 1,
@@ -167,10 +173,6 @@ def get_detail_payloads(company_code, year):
         'co_id': company_code,
         'year': year
     }
-    payload_hash_key = to_sha1(json.dumps(payload))
-    detail_payloads_str = redis_cache.get_val(payload_hash_key)
-    if detail_payloads_str is not None:
-        return json.loads(detail_payloads_str)
 
     soup = soup_from_mops(payload)
     all_tables = soup.find_all('table')
@@ -185,7 +187,6 @@ def get_detail_payloads(company_code, year):
 
         onclick = button['onclick']
         onclick_assignments = list(filter(None, onclick.split(';')))
-        onclick_assignments = onclick_assignments
 
         detail_payload = {
             'encodeURIComponent': 1,
@@ -204,7 +205,7 @@ def get_detail_payloads(company_code, year):
                 detail_payload[matched_groups[0]] = matched_groups[1]
 
         detail_payloads.append(detail_payload)
-    redis_cache.set_val(payload_hash_key, 60 * 60, json.dumps(detail_payloads))
+
     return detail_payloads
 
 
@@ -228,12 +229,13 @@ def read_material_info_details(detail_payloads, begin_date, end_date):
 
         if spoken_date >= begin_date:
             plain_key = f"{detail_payload['co_id']}.{detail_payload['year']}." \
-                f"{detail_payload['spoke_date']}.{detail_payload['seq_no']}"
+                        f"{detail_payload['spoke_date']}.{detail_payload['seq_no']}"
             detail_payload_hash_key = to_sha1(plain_key)
 
             try:
                 material_info = MaterialInformation.objects.get(id=detail_payload_hash_key)
             except DoesNotExist:
+                time.sleep(random.random())
                 soup = soup_from_mops(detail_payload)
                 information_body_table = soup.find_all('table')[2]
                 rows = information_body_table.find_all('tr')
@@ -295,5 +297,3 @@ def start_mops_schedule_task():
 
         subscription.last_pushed_id = last_pushed_id
         subscription.save()
-
-

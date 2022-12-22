@@ -1,11 +1,13 @@
+import abc
+import logging
 import os
+
 from linebot import (
     LineBotApi, WebhookHandler
 )
 from linebot.models import (
     TextSendMessage,
 )
-import abc
 
 from CommandException import CommandException
 
@@ -54,6 +56,7 @@ class AbstractLineEventHandler(abc.ABC):
             except CommandException as e:
                 reply_message(reply_token, str(e))
             except Exception as e:
+                logging.exception('handle error')
                 reply_message(reply_token, '系統異常')
                 # reply_message(reply_token, str(e))
 

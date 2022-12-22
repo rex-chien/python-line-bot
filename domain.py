@@ -1,7 +1,7 @@
 import os
 from mongoengine import *
 
-connect(host=os.getenv('MONGODB_URI') + '/' + os.getenv('MONGODB_DATABASE'))
+connect(host=os.getenv('MONGODB_URI'))
 
 __all__ = (
     'NotificationFlag', 'Notification', 'ExchangeNotification',
