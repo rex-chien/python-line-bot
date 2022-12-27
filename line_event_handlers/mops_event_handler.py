@@ -36,6 +36,8 @@ class MopsEventHandler(AbstractLineEventHandler):
             'recent': self._recent_action,
             'range': self._range_action,
             'sub': self._subscribe_action,
+            'dsub': self._delete_subscribe_action,
+            'lsub': self._list_subscribe_action,
             'help': self._help_action,
         }
         if len(commands) > 1:
@@ -105,6 +107,22 @@ class MopsEventHandler(AbstractLineEventHandler):
 
         return f'成功訂閱 [{company_code}] 的重大訊息'
 
+    def _delete_subscribe_action(self, **kwargs):
+        sender_id = kwargs['sender_id']
+        commands = kwargs['commands']
+        company_code = commands[0]
+
+        MaterialInformationSubscription.objects(company_code=company_code).upsert_one(pull__sources=sender_id)
+
+        return f'已取消訂閱 [{company_code}] 的重大訊息'
+
+    def _list_subscribe_action(self, **kwargs):
+        sender_id = kwargs['sender_id']
+
+        subscriptions = MaterialInformationSubscription.objects(sources=sender_id)
+
+        return f'已訂閱重大訊息的公司：\n' + '\n'.join([sub.company_code for sub in subscriptions])
+
     def _help_action(self, **kwargs):
         return self.help_message()
 
@@ -117,6 +135,8 @@ class MopsEventHandler(AbstractLineEventHandler):
             '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
             '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
             '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
+            '取消訂閱指定公司的重大訊息：MI [公司代號] DSUB\n' + \
+            '列出目前訂閱重大訊息的公司：MI LSUB\n' + \
             '顯示指令說明：MI HELP\n' + \
             '【資料來源】\n' + \
             '公開資訊觀測站：https://mops.twse.com.tw/mops/web/index'
