@@ -71,10 +71,10 @@ class ExchangeRateEventHandler(AbstractLineEventHandler):
     def help_message():
         return '==台灣銀行牌告匯率==\n' \
                '【指令說明】\n' + \
-            '設定匯率到價提醒：ER SET [幣別] [匯率] [B/S]\n' + \
-            '刪除匯率到價提醒：ER DEL [幣別] [B/S]\n' + \
-            '取得即期匯率：ER GET [幣別]\n' + \
-            '顯示指令說明：ER HELP\n' + \
+            '1. 設定匯率到價提醒：ER SET [幣別] [匯率] [B/S]\n' + \
+            '2. 刪除匯率到價提醒：ER DEL [幣別] [B/S]\n' + \
+            '3. 取得即期匯率：ER GET [幣別]\n' + \
+            '4. 顯示指令說明：ER HELP\n' + \
             '* [B/S] B=銀行買入/S=銀行賣出\n' + \
             '【資料來源】\n' + \
             '臺灣銀行牌告匯率：https://rate.bot.com.tw/xrt?Lang=zh-TW'

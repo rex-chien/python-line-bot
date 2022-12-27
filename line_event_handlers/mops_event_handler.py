@@ -130,14 +130,14 @@ class MopsEventHandler(AbstractLineEventHandler):
     def help_message():
         return '==重大訊息==\n' \
                '【指令說明】\n' + \
-            '查詢今天重大訊息：MI [公司代號] RECENT\n' + \
-            '查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
-            '查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
-            '查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
-            '訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
-            '取消訂閱指定公司的重大訊息：MI [公司代號] DSUB\n' + \
-            '列出目前訂閱重大訊息的公司：MI LSUB\n' + \
-            '顯示指令說明：MI HELP\n' + \
+            '1. 查詢今天重大訊息：MI [公司代號] RECENT\n' + \
+            '2. 查詢近 N 天重大訊息：MI [公司代號] RECENT [N]\n' + \
+            '3. 查詢指定日期後的重大訊息：MI [公司代號] RANGE [YYYYMMDD]\n' + \
+            '4. 查詢指定日期範圍中的重大訊息：MI [公司代號] RANGE [YYYYMMDD] [YYYYMMDD]\n' + \
+            '5. 訂閱指定公司的重大訊息：MI [公司代號] SUB\n' + \
+            '6. 取消訂閱指定公司的重大訊息：MI [公司代號] DSUB\n' + \
+            '7. 列出目前訂閱重大訊息的公司：MI LSUB\n' + \
+            '8. 顯示指令說明：MI HELP\n' + \
             '【資料來源】\n' + \
             '公開資訊觀測站：https://mops.twse.com.tw/mops/web/index'
 
