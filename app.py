@@ -89,8 +89,8 @@ def wakeup():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=line_event_handlers.start_rate_schedule_task, trigger="interval", minutes=1)
-scheduler.add_job(func=line_event_handlers.start_mops_schedule_task, trigger="interval", minutes=10)
+scheduler.add_job(func=line_event_handlers.start_rate_schedule_task, trigger='cron', minute='*/5')
+scheduler.add_job(func=line_event_handlers.start_mops_schedule_task, trigger='cron', minute='*/10')
 # scheduler.add_job(func=wakeup, trigger="interval", minutes=10)
 scheduler.start()
 
